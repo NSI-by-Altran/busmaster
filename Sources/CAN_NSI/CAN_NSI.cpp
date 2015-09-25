@@ -531,7 +531,7 @@ ULONGLONG GetTimeStamp()
 /// \param[in]     pEvent, event structure
 ///                unDrvChannel, number of the driver channel.
 /// \return        void.
-/// \authors       Grégory Merchat
+/// \authors       GrÃ©gory Merchat
 /// \date          18.04.2013 Created
 ///-------------------------------------------------------------------------------------------------------------
 void GetEventString(t_CANevent* pEvent, UINT unDrvChannel)
@@ -1151,177 +1151,6 @@ int ListHardwareInterfaces(HWND hParent, DWORD , INTERFACE_HW* psInterfaces, int
     }
 }
 
-///----------------------------------------------------------------------------
-/// \brief         This function will get the hardware selection from the user
-///                and will create essential networks.
-/// \param         unDefaultChannelCnt
-/// \return        returns defERR_OK (always)
-/// \authors       Arunkumar Karri
-/// \date          12.10.2011 Created
-///----------------------------------------------------------------------------
-static int nCreateMultipleHardwareNetwork(UINT unDefaultChannelCnt = 0)
-{
-    int nHwCount = sg_ucNoOfHardware;
-    //DWORD dwFirmWare[2];
-    char chBuffer[512] = "";
-    // Display a message in a new window
-    CString omErr;
-    // Get Hardware Network Map
-    for (int nCount = 0; nCount < nHwCount; nCount++)
-    {
-        cr = Ic_InitDrv((short)nCount, &NSI_hCanal[nCount]);
-        if(cr != _OK)
-        {
-            nCount = nHwCount;
-        }
-        cr = Ic_GetDeviceInfo(NSI_hCanal[nCount], &NSI_deviceInfo[nCount]);
-        cr = Ic_ExitDrv(NSI_hCanal[nCount]);
-        if(cr != _OK)
-        {
-            nCount = nHwCount;
-        }
-        switch(NSI_deviceInfo[nCount].deviceType)
-        {
-            case _CANPCISA: // CANPC, CANPCa, CANPCMCIA, CAN104
-                strcpy_s(chBuffer, "NSI - ");
-                strcat_s(chBuffer, NSI_deviceInfo[nCount].CAN_ISA.cardName);
-                sg_HardwareIntr[nCount].m_acDescription = chBuffer;
-                sg_HardwareIntr[nCount].m_dwIdInterface = nCount;
-                flagLowSpeed = FALSE;
-                break;
-            case _CANPCI2P: // CANPCI
-                strcpy_s(chBuffer, "NSI - ");
-                strcat_s(chBuffer, NSI_deviceInfo[nCount].CAN_PCI.cardName);
-                sg_HardwareIntr[nCount].m_acDescription = chBuffer;
-                sg_HardwareIntr[nCount].m_dwIdInterface = nCount;
-                flagLowSpeed = FALSE;
-                break;
-            case _CANPCUSB: // CAN-USB Interface
-                sg_HardwareIntr[nCount].m_dwIdInterface = nCount;
-                flagLowSpeed = FALSE;
-                break;
-            case _OBDUSB: // MUXy, MUXy light
-                strcpy_s(chBuffer, NSI_deviceInfo[nCount].CAN_USB.manufacturerName);
-                strcat_s(chBuffer, " - ");
-                strcat_s(chBuffer, NSI_deviceInfo[nCount].CAN_USB.productName);
-                sg_HardwareIntr[nCount].m_acDeviceName = NSI_deviceInfo[nCount].CAN_USB.serialNumber;
-                sg_HardwareIntr[nCount].m_acDescription = chBuffer;
-                sg_HardwareIntr[nCount].m_dwIdInterface = nCount;
-                flagLowSpeed = FALSE;
-                break;
-            case _USBBOX: // MUXyBox
-                strcpy_s(chBuffer, NSI_deviceInfo[nCount].CAN_USB.manufacturerName);
-                strcat_s(chBuffer, " - ");
-                strcat_s(chBuffer, NSI_cardData[nCount].cardNameString);
-                sg_HardwareIntr[nCount].m_acDeviceName = NSI_deviceInfo[nCount].CAN_USB.serialNumber;
-                sg_HardwareIntr[nCount].m_acDescription = chBuffer;
-                sg_HardwareIntr[nCount].m_dwIdInterface = nCount;
-                flagLowSpeed = TRUE;
-                break;
-            case _USBMUXY2: //MUXy2010 et MUXybox 2
-                strcpy_s(chBuffer, NSI_deviceInfo[nCount].CAN_USB.manufacturerName);
-                strcat_s(chBuffer, " - ");
-                strcat_s(chBuffer, NSI_cardData[nCount].cardNameString);
-                sg_HardwareIntr[nCount].m_acDeviceName = NSI_deviceInfo[nCount].CAN_USB.serialNumber;
-                sg_HardwareIntr[nCount].m_acDescription = chBuffer;
-                sg_HardwareIntr[nCount].m_dwIdInterface = nCount;
-                flagLowSpeed = TRUE;
-                break;
-        }
-    }
-
-    /* If the default channel count parameter is set, prevent displaying the hardware selection dialog */
-    if ( unDefaultChannelCnt && (UINT)nHwCount >= unDefaultChannelCnt )
-    {
-        for (UINT i = 0; i < unDefaultChannelCnt; i++)
-        {
-            sg_anSelectedItems[i] = i;
-        }
-        nHwCount = unDefaultChannelCnt;
-    }
-    else if ( ListHardwareInterfaces(sg_hOwnerWnd, DRIVER_CAN_NSI, sg_HardwareIntr, sg_anSelectedItems, nHwCount) != 0 )
-    {
-        return HW_INTERFACE_NO_SEL;
-    }
-    sg_ucNoOfHardware = (UCHAR)nHwCount; // copy the number of the selected device
-    sg_nNoOfChannels = (UINT)nHwCount; // copy the number of the selected device
-
-    //Reorder hardware interface as per the user selection
-    for (int nCount = 0; nCount < sg_ucNoOfHardware; nCount++)
-    {
-        sg_aodChannels[nCount].m_nChannel = sg_HardwareIntr[sg_anSelectedItems[nCount]].m_dwIdInterface;
-        sprintf_s(sg_aodChannels[nCount].m_strName , _("%s, Serial Number - %s"),
-                  sg_HardwareIntr[sg_anSelectedItems[nCount]].m_acDescription.c_str(),
-                  sg_HardwareIntr[sg_anSelectedItems[nCount]].m_acDeviceName.c_str());
-    }
-    return defERR_OK;
-}
-
-///---------------------------------------------------------------------------------------------------
-/// \brief         This function will find number of hardwares connected.
-///                It will create network as per hardware count.
-///                This will popup hardware selection dialog in case there are more hardwares present.
-/// \param         unDefaultChannelCnt
-/// \return        Operation Result. 0 incase of no errors. Failure Error codes otherwise.
-/// \authors       Arunkumar Karri
-/// \date          12.10.2011 Created
-///---------------------------------------------------------------------------------------------------
-static int nInitHwNetwork(UINT unDefaultChannelCnt)
-{
-    int nChannelCount = 0;
-    int nResult = NO_HW_INTERFACE;
-
-    /* Select Hardware */
-    cr = Ic_EnumCards(&cardCount, NSI_cardData, sizeof(NSI_cardData));
-    if( cr != _OK )
-    {
-        // Display a message in a new window
-        CString omErr;
-        omErr.Format(_("Ic_EnumCards : %s "), GetCodeString(cr));
-        AfxMessageBox(omErr);
-    }
-    nChannelCount = cardCount;
-    // Assign the channel count
-    sg_ucNoOfHardware = (UCHAR)nChannelCount;
-
-    /* Capture only Driver Not Running event
-     * Take action based on number of Hardware Available
-     */
-    char acNo_Of_Hw[256] = {0};
-    sprintf_s(acNo_Of_Hw, _("Number of NSI hardwares Available: %d"), nChannelCount);
-
-    /* No Hardware found */
-    if( nChannelCount == 0 )
-    {
-        sprintf_s(sg_omErrStr, _("No NSI hardwares Available.\nPlease check if NSI drivers are installed."));
-    }
-    /* Available hardware is lesser then the supported channels */
-    else
-    {
-        // Check whether channel selection dialog is required
-        /*if( nChannelCount > 1)
-        {
-            // Get the selection from the user. This will also
-            // create and assign the networks
-            nResult = nCreateMultipleHardwareNetwork(unDefaultChannelCnt);
-        }
-        else
-        {
-            if(NSI_cardData[0].cardAlreadyOpen == 1)
-            {
-                nResult = 1;
-            }
-            else
-            {
-                // Use available one hardware
-                nResult = nCreateSingleHardwareNetwork();
-            }
-        }*/
-        nResult = nCreateMultipleHardwareNetwork(unDefaultChannelCnt);
-    }
-    return nResult;
-}
-
 ///---------------------------------------------------------------------------------------
 /// \brief         This function will open the CAN canal associate with the parameter.
 /// \param         unDrvChannel, number of the driver channel.
@@ -1466,7 +1295,7 @@ static int nInitLineDriver(UINT unDrvChannel, short mode)
 /// \brief         Function to set the channel baudrate configured by user
 /// \param[in]     unDrvChannel, number of the driver channel.
 /// \return        canOK if succeeded, else respective error code
-/// \authors       Grégory Merchat
+/// \authors       GrÃ©gory Merchat
 /// \date          19.04.2013 Created
 ///------------------------------------------------------------------------
 static int nSetBaudRate(UINT unDrvChannel)
@@ -1509,7 +1338,7 @@ static int nSetBaudRate(UINT unDrvChannel)
 /// \brief         Function to set the channel filter configured by user
 /// \param[in]     unDrvChannel, number of the driver channel.
 /// \return        canOK if succeeded, else respective error code
-/// \authors       Grégory Merhat
+/// \authors       GrÃ©gory Merhat
 /// \date          19.04.2013 Created
 ///----------------------------------------------------------------------
 static int nSetFilter(UINT unDrvChannel, BOOL /*bWrite*/)
@@ -1533,14 +1362,7 @@ static int nSetFilter(UINT unDrvChannel, BOOL /*bWrite*/)
              ( sFilter.m_ucACC_Mask2 << nShift * 2 ) |
              ( sFilter.m_ucACC_Mask1 << nShift ) |
              sFilter.m_ucACC_Mask0;
-    if(sFilter.m_ucACC_Filter_Type == _CAN_STD)
-    {
-        cr = Ic_SetRxMask(NSI_hCanal[sg_aodChannels[unDrvChannel].m_nChannel], dwCode, dwMask, _CAN_STD);
-    }
-    else
-    {
-        cr = Ic_SetRxMask(NSI_hCanal[sg_aodChannels[unDrvChannel].m_nChannel], dwCode, dwMask, _CAN_EXT);
-    }
+    cr = Ic_SetRxMask(NSI_hCanal[sg_aodChannels[unDrvChannel+1].m_nChannel], dwCode, dwMask, _CAN_ALL);
     if(cr != _OK)
     {
         // Display a message in a new window
@@ -1556,7 +1378,7 @@ static int nSetFilter(UINT unDrvChannel, BOOL /*bWrite*/)
 /// \brief         Function to apply filters and baudrate to channels
 /// \param         void
 /// \return        defERR_OK if succeeded, else respective error code
-/// \authors       Grégory Merhat
+/// \authors       GrÃ©gory Merhat
 /// \date          19.04.2013 Created
 ///-------------------------------------------------------------------
 static int nSetApplyConfiguration()
@@ -1679,7 +1501,7 @@ static int nConnect(BOOL bConnect, BYTE /*hClient*/)
 ///-------------------------------------------------------
 /// \brief         Finds the number of hardware connected.
 /// \return        Number of channel connected.
-/// \authors       Grégory Merchat
+/// \authors       GrÃ©gory Merchat
 /// \date          17.04.2013 Created
 ///-------------------------------------------------------
 static int GetNoOfConnectedHardware(void)
@@ -2102,30 +1924,151 @@ HRESULT CDIL_CAN_NSI::CAN_GetTimeModeMapping(SYSTEMTIME& CurrSysTime, UINT64& Ti
 /// \param[out]    nCount , is INT contains the selected channel count.
 /// \return        S_OK for success, S_FALSE for failure
 /// \authors       Arunkumar Karri
+///				   Garnier Manu
 /// \date          12.10.2011 Created
+///				   09.18.2015 Edited
 ///---------------------------------------------------------------------
 HRESULT CDIL_CAN_NSI::CAN_ListHwInterfaces(INTERFACE_HW_LIST& asSelHwInterface, INT& nCount)
 {
-    //VALIDATE_VALUE_RETURN_VAL(sg_bCurrState, STATE_DRIVER_SELECTED, ERR_IMPROPER_STATE);
     USES_CONVERSION;
-    HRESULT hResult = S_FALSE;
+    HRESULT hResult = S_OK;
+	unsigned long total_carte=0;
+	int cartes_dispo=0;
+	t_CardData cartes[MAX_BUFF_ALLOWED];
+	t_CANdeviceInfo info_cartes[MAX_BUFF_ALLOWED];
+	/* Select Hardware */
+    cr = Ic_EnumCards(&total_carte, cartes, sizeof(cartes));
+    if( cr != _OK )
+    {
+        // Display a message in a new window
+        CString omErr;
+        omErr.Format(_("Ic_EnumCards : %s "), GetCodeString(cr));
+        AfxMessageBox(omErr);
+		hResult = S_FALSE;
+    }
+	for(int i=0; i<total_carte; i++)
+	{
+		if ( cartes[i].cardAlreadyOpen==0)
+		{
+			//connexion to the HW
+			cr=Ic_InitDrv( i, &NSI_hCanal[i]);
+			if(cr != _OK)
+			{
+				// Display a message in a new window
+				CString omErr;
+				omErr.Format(_("Ic_InitDrv : %s "), GetCodeString(cr));
+				AfxMessageBox(omErr);
+				hResult = S_FALSE;
+				break;
+			}
+			//Get HW informations
+			cr = Ic_GetDeviceInfo(NSI_hCanal[i], &info_cartes[i]);
+			if(cr != _OK)
+			{
+				// Display a message in a new window
+				CString omErr;
+				omErr.Format(_("Ic_GetDeviceInfo : %s "), GetCodeString(cr));
+				AfxMessageBox(omErr);
+				hResult = S_FALSE;
+				break;
+			}
+			//Exit HW
+			cr = Ic_ExitDrv(NSI_hCanal[i]);
+			if(cr != _OK)
+			{
+				// Display a message in a new window
+				CString omErr;
+				omErr.Format(_("Ic_ExitDrv : %s "), GetCodeString(cr));
+				AfxMessageBox(omErr);
+				hResult = S_FALSE;
+				break;
+			}
+			//Update HW list
+			std::string info="";
+			switch(info_cartes[i].deviceType)
+			{
+				case _CANPCISA: // CANPC, CANPCa, CANPCMCIA, CAN104
+					info+="NSI - ";
+					info+=info_cartes[i].CAN_ISA.cardName;
+					sg_HardwareIntr[cartes_dispo].m_acDescription = info;
+					sg_HardwareIntr[cartes_dispo].m_dwIdInterface = i;
+					flagLowSpeed = FALSE;
+					break;
+				case _CANPCI2P: // CANPCI
+					info+="NSI - ";
+					info+=info_cartes[i].CAN_PCI.cardName;
+					sg_HardwareIntr[cartes_dispo].m_acDescription = info;
+					sg_HardwareIntr[cartes_dispo].m_dwIdInterface = i;
+					flagLowSpeed = FALSE;
+					break;
+				case _CANPCUSB: // CAN-USB Interface
+					sg_HardwareIntr[i].m_dwIdInterface = i;
+					flagLowSpeed = FALSE;
+					break;
+				case _OBDUSB: // MUXy, MUXy light
+					info+= info_cartes[i].CAN_USB.manufacturerName;
+					info+= " - ";
+					info+=info_cartes[i].CAN_USB.productName;
+					sg_HardwareIntr[cartes_dispo].m_acDeviceName = info_cartes[i].CAN_USB.serialNumber;
+					sg_HardwareIntr[cartes_dispo].m_acDescription = info;
+					sg_HardwareIntr[cartes_dispo].m_dwIdInterface = i;
+					flagLowSpeed = FALSE;
+					break;
+				case _USBBOX: // MUXyBox
+					info+= info_cartes[i].CAN_USB.manufacturerName;
+					info+= " - ";
+					info+=cartes[i].cardNameString;
+					sg_HardwareIntr[cartes_dispo].m_acDeviceName = NSI_deviceInfo[i].CAN_USB.serialNumber;
+					sg_HardwareIntr[cartes_dispo].m_acDescription = info;
+					sg_HardwareIntr[cartes_dispo].m_dwIdInterface = i;
+					flagLowSpeed = TRUE;
+					break;
+				case _USBMUXY2: //MUXy2010 et MUXybox 2
+					info+= info_cartes[i].CAN_USB.manufacturerName;
+					info+= " - ";
+					info+= cartes[i].cardNameString;
+					sg_HardwareIntr[cartes_dispo].m_acDeviceName = info_cartes[i].CAN_USB.serialNumber;
+					sg_HardwareIntr[cartes_dispo].m_acDescription = info;
+					sg_HardwareIntr[cartes_dispo].m_dwIdInterface = i;
+					flagLowSpeed = TRUE;
+					break;
+			}
+		cartes_dispo++;
+		}
+	}
 
-    if (( hResult = nInitHwNetwork(nCount)) == 0)
-    {
-        nCount = sg_nNoOfChannels; // Number of the selected device
-        for(int i=0; i<nCount; i++)
-        {
-            asSelHwInterface[i].m_dwIdInterface = sg_HardwareIntr[sg_aodChannels[i].m_nChannel].m_dwIdInterface;
-            asSelHwInterface[i].m_acDeviceName = sg_HardwareIntr[sg_aodChannels[i].m_nChannel].m_acDeviceName;
-            asSelHwInterface[i].m_acDescription = sg_HardwareIntr[sg_aodChannels[i].m_nChannel].m_acDescription;
-        }
-        hResult = S_OK;
-        sg_bCurrState = STATE_HW_INTERFACE_LISTED;
-    }
-    else
-    {
-        sg_pIlog->vLogAMessage(A2T(__FILE__), __LINE__, _("Error connecting to driver"));
-    }
+	if (cartes_dispo<1)
+	{
+		AfxMessageBox("Il n'y a pas de pÃ©riphÃ©rique libre");	
+		return S_FALSE;
+	}
+	else {
+		// List HW interfaces
+		if ( ListHardwareInterfaces(sg_hOwnerWnd, DRIVER_CAN_NSI, sg_HardwareIntr, sg_anSelectedItems, cartes_dispo) != 0 )
+		{
+			return HW_INTERFACE_NO_SEL;
+		}
+	}
+	
+	nCount=cartes_dispo;
+	sg_ucNoOfHardware = (UCHAR)nCount; // copy the number of the selected device
+	sg_nNoOfChannels = (UINT)nCount;   // copy the number of the selected device
+
+	//Reorder hardware interface as per the user selection
+	for (int cpt = 0; cpt < sg_ucNoOfHardware; cpt++)
+	{
+		sg_aodChannels[cpt].m_nChannel = sg_HardwareIntr[sg_anSelectedItems[cpt]].m_dwIdInterface;
+		sprintf_s(sg_aodChannels[cpt].m_strName , _("%s, Serial Number - %s"),
+			sg_HardwareIntr[sg_anSelectedItems[cpt]].m_acDescription.c_str(),
+			sg_HardwareIntr[sg_anSelectedItems[cpt]].m_acDeviceName.c_str());
+	}
+	for(int i=0; i<nCount; i++)
+	{
+			asSelHwInterface[i].m_dwIdInterface = sg_HardwareIntr[sg_anSelectedItems[i]].m_dwIdInterface;
+			asSelHwInterface[i].m_acDeviceName = sg_HardwareIntr[sg_anSelectedItems[i]].m_acDeviceName;
+			asSelHwInterface[i].m_acDescription = sg_HardwareIntr[sg_anSelectedItems[i]].m_acDescription;
+	}
+	sg_bCurrState = STATE_HW_INTERFACE_LISTED;
     return hResult;
 }
 
@@ -2164,7 +2107,7 @@ HRESULT CDIL_CAN_NSI::CAN_SelectHwInterface(const INTERFACE_HW_LIST& asSelHwInte
         {
             hResult = S_FALSE;
         }
-        if(nInitRxMask((UINT)asSelHwInterface[i].m_dwIdInterface, 0x000, 0x000, _CAN_STD) != 0) // Accept all IDs
+        if(nInitRxMask((UINT)asSelHwInterface[i].m_dwIdInterface, 0x000, 0x000, _CAN_ALL) != 0) // Accept all IDs
         {
             hResult = S_FALSE;
         }
